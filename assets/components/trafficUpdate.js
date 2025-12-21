@@ -1,93 +1,87 @@
-import React, { use, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, FlatList, Dimensions, Animated, Image } from 'react-native';
 import * as Location from 'expo-location';
 import axios from 'axios';
+import Constants from 'expo-constants';
 
-// images 
-import light from './light.jpeg'
-import moderate from './moderate.jpeg'
-import heavy from './heavy.jpeg'
 
 const { width } = Dimensions.get('window');
 
 export default function TrafficUpdate() {
-    const trafficRegions = [{
-        name: 'Downtown',
-        latOffset: 0.02,
-        lonOffset: 0.01,
-    }, {
-        name: 'Uptown',
-        latOffset: 0.02,
-        lonOffset: 0.01,
-    }, {
-        name: 'Suburbs',
-        latOffset: 0.02,
-        lonOffset: 0.01,
-    }, {
-        name: 'Highway 1',
-        latOffset: 0.02,
-        lonOffset: 0.01,
-    }, {
-        name: 'Highway 2',
-        latOffset: 0.02,
-        lonOffset: -0.04,
-    }];
-
-    const [loading, setLoading] = React.useState(true);
-    const [error, setError] = React.useState(null);
-    const [trafficData, setTrafficData] = React.useState([]);
-    const [location, setLocation] = React.useState(null);
+    const [trafficData, setTrafficData] = useState([]);
+    const [location, setLocation] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         (async () => {
-            const { status } = await Location.requestForegroundPermissionsAsync();
+            let { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                setError('Permission to access location denied');
+                setError("Permission denied");
                 setLoading(false);
                 return;
             }
-            const loc = await Location.getCurrentPositionAsync({});
-            setLocation(loc.coords);
+
+            const position = await Location.getCurrentPositionAsync({});
+            setLocation(position.coords);
         })();
     }, []);
+    const getRegions = (lat, lon) => [
+        { name: "North Area", latitude: lat + 0.02, longitude: lon },
+        { name: "South Area", latitude: lat - 0.02, longitude: lon },
+        { name: "East Area", latitude: lat, longitude: lon + 0.02 },
+        { name: "West Area", latitude: lat, longitude: lon - 0.02 },
+    ];
+
     useEffect(() => {
         if (!location) return;
-        const fetchTrafficData = async () => {
+
+        const fetchTraffic = async () => {
             setLoading(true);
-            setError(null);
-            const apikey = 'AIzaSyB9PCPpvm73q68YlckMHVZVanR-oMf8WpA';
+            const apiKey = Constants.manifest.extra.googleMapsApiKey;
+
+            const regions = getRegions(location.latitude, location.longitude);
             const results = [];
 
-            for (const region of trafficRegions) {
-                const lat = location.latitude + region.latOffset;
-                const lon = location.longitude + region.lonOffset;
-
+            for (const region of regions) {
                 try {
-                    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${lat},${lon}&destinations=${lat},${lon}&key=${apikey}`;
-                    const {data} = await axios.get(url);
-                    const pos = data.rows[0].elements[0];
+                    const originLat = location.latitude;
+                    const originLon = location.longitude;
+                    const destLat = region.latitude;
+                    const destLon = region.longitude;
+                    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${originLat},${originLon}&destinations=${destLat},${destLon}&key=${apiKey}`;
+                    const response = await axios.get(url);
+                    const data = response.data.rows[0].elements[0];
 
-                    let status = 'No Data';
-                    if (pos.status === 'OK') {
-                        const delay = pos.duration_in_traffic?.value / pos.duration.value || 1;
-                        if (delay > 1.5) status = 'Heavy Traffic';
-                        else if (delay > 1.2) status = 'Moderate Traffic';
-                        else status = 'Light Traffic';
+                    let status = "No Data";
+
+                    if (data.status === "OK") {
+                        const duration = data.duration.value;
+                        const trafficDuration = data.duration_in_traffic?.value || duration;
+
+                        const ratio = trafficDuration / duration;
+
+                        if (ratio > 1.5) status = "Heavy Traffic";
+                        else if (ratio > 1.2) status = "Moderate Traffic";
+                        else status = "Light Traffic";
                     }
+
                     results.push({ region: region.name, status });
-                } catch (error) {
-                    console.error(error);
-                    results.push({ region: region.name, status: 'Error fetching data' });
+                } catch (e) {
+                    results.push({ region: region.name, status: "Error fetching data" });
                 }
             }
+
             setTrafficData(results);
             setLoading(false);
         };
-        fetchTrafficData();
 
-        const interval = setInterval(fetchTrafficData, 5 * 60 * 1000);
+        fetchTraffic();
+        const interval = setInterval(fetchTraffic, 5 * 60 * 1000);
+
         return () => clearInterval(interval);
     }, [location]);
+
 
     if (loading) return <ActivityIndicator size='large' />;
     if (error) return <Text>{error}</Text>;
@@ -99,18 +93,23 @@ export default function TrafficUpdate() {
         return '#999';
     };
 
-    const getStatusImage = (status) => {
-        if (status === 'Heavy Traffic') return heavy;
-        if (status === 'Moderate Traffic') return moderate;
-        if (status === 'Light Traffic') return light;
-        return null;
-    }
+    const statusImages = {
+        'Heavy Traffic': require('../images/heavy.jpeg'),
+        'Moderate Traffic': require('../images/moderate.jpeg'),
+        'Light Traffic': require('../images/light.jpeg'),
+    };
+
+  const getStatusImage = (status) => {
+    const source = statusImages[status];
+    console.log(statusImages);
+    return source ? <Image source={source} style={{ width: 50, height: 50 }} /> : null;
+};
 
     const renderRegionCard = ({ item }) => (
         <View style={[styles.card, { width: width - 40 }]}>
             <Text style={styles.regionName}>{item.region}</Text>
-            <Image 
-                source={getStatusImage(item.status)} 
+            <Image
+                source={getStatusImage(item.status)}
                 style={styles.statusImage}
                 resizeMode="contain"
             />
@@ -125,7 +124,7 @@ export default function TrafficUpdate() {
             <View style={styles.headlineContainer}>
                 <Text style={styles.headline}>Real Time Traffic Update</Text>
             </View>
-            
+
             <FlatList
                 data={trafficData}
                 renderItem={renderRegionCard}
