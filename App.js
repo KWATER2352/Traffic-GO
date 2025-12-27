@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, StyleSheet, ImageBackground, ActivityIndicator, Animated } from 'react-native';
+import { View, StyleSheet, ImageBackground, ActivityIndicator, Animated, Modal, TouchableOpacity } from 'react-native';
 import { ScrollView } from 'react-native';
 import { Provider as PaperProvider, Appbar, Text, BottomNavigation, Button, Dialog, Portal} from 'react-native-paper';
 import { useFonts } from 'expo-font';
@@ -11,9 +11,15 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import MySearch from './assets/components/searchy';
 import Maps from './assets/components/maps';
 import TrafficUpdate from './assets/components/trafficUpdate';
-
+import IncidentReport from './assets/components/incidentReport';
+import RouteRecommendation from './assets/components/rec';
+import SavedRoutes from './assets/components/savedRoutes';
 // Route components
-const HomeRoute = ({ showTraffic, setShowTraffic, trafficFadeAnim }) => {
+const HomeRoute = ({ showTraffic, setShowTraffic, trafficFadeAnim, showIncidentReport, setShowIncidentReport, navigateToRoutes }) => {
+  if (showIncidentReport) {
+    return <IncidentReport />;
+  }
+  
   if (showTraffic) {
     return (
       <Animated.View style={[styles.routeContainer, { opacity: trafficFadeAnim }]}>
@@ -29,9 +35,9 @@ const HomeRoute = ({ showTraffic, setShowTraffic, trafficFadeAnim }) => {
         <Button mode="contained" style={styles.updateButton} onPress={() => setShowTraffic(true)}>
           <Text style={styles.buttonText}>Real Time Traffic Updates</Text>
         </Button>
-        <Button mode="contained" style={styles.updateButton}><Text style={styles.buttonText}>Recommended Routes</Text></Button>
-        <Button mode="contained" style={styles.updateButton}><Text style={styles.buttonText}>Current Traffic Level</Text></Button>
-        <Button mode="contained" style={styles.updateButton}><Text style={styles.buttonText}>Incident Reports</Text></Button>
+        <Button mode="contained" style={styles.updateButton} onPress={() => navigateToRoutes()}><Text style={styles.buttonText}>Recommended Routes</Text></Button>
+        <Button mode="contained" style={styles.updateButton} onPress={() => {}}><Text style={styles.buttonText}>Current Traffic Level</Text></Button>
+        <Button mode="contained" style={styles.updateButton} onPress={() => setShowIncidentReport(true)}><Text style={styles.buttonText}>Report Incident</Text></Button>
       </View>
     </View>
   );
@@ -51,15 +57,13 @@ const MapsRoute = () => (
 );
 
 const SettingsRoute = () => (
-  <View style={styles.routeContainer}>
-    <Text style={styles.text}>Settings View</Text>
+  <View style={styles.container}>
+    <SavedRoutes />
   </View>
 );
 
 const RoutesRoute = () => (
-  <View style={styles.routeContainer}>
-    <Text style={styles.text}>Routes View</Text>
-  </View>
+  <RouteRecommendation />
 );
 
 export default function App() {
@@ -72,7 +76,9 @@ export default function App() {
   // Bottom navigation state
   const [index, setIndex] = React.useState(0);
   const [showTraffic, setShowTraffic] = React.useState(false);
+  const [showIncidentReport, setShowIncidentReport] = React.useState(false);
   const [trafficFadeAnim] = React.useState(new Animated.Value(0));
+  const [showMenuModal, setShowMenuModal] = React.useState(false);
 
   React.useEffect(() => {
     Animated.timing(trafficFadeAnim, {
@@ -82,11 +88,17 @@ export default function App() {
     }).start();
   }, [showTraffic]);
 
+  React.useEffect(() => {
+    if (index !== 0) {
+      setShowIncidentReport(false);
+    }
+  }, [index]);
+
   const [routes] = React.useState([
     { key: 'home', title: 'Home', icon: 'home' },
     { key: 'maps', title: 'Maps', icon: 'map' },
   { key: 'routes', title: 'Routes', icon: 'map' },
-    { key: 'settings', title: 'Settings', icon: 'cog' },
+    { key: 'settings', title: 'Saved', icon: 'bookmark' },
   ]);
 
   if (!fontsLoaded) {
@@ -100,7 +112,14 @@ export default function App() {
   const renderScene = ({ route }) => {
     switch (route.key) {
       case 'home':
-        return <HomeRoute showTraffic={showTraffic} setShowTraffic={setShowTraffic} trafficFadeAnim={trafficFadeAnim} />;
+        return <HomeRoute 
+          showTraffic={showTraffic} 
+          setShowTraffic={setShowTraffic} 
+          trafficFadeAnim={trafficFadeAnim} 
+          showIncidentReport={showIncidentReport} 
+          setShowIncidentReport={setShowIncidentReport}
+          navigateToRoutes={() => setIndex(2)}
+        />;
       case 'maps':
         return <MapsRoute />;
       case 'routes':
@@ -117,9 +136,92 @@ export default function App() {
       <View style={{ flex: 1 }}>
 
         <Appbar.Header style={styles.menubar}>
-          <Appbar.Action icon="menu" onPress={() => console.log('Menu pressed')} />
+          <Appbar.Action icon="menu" onPress={() => setShowMenuModal(true)} />
           <Appbar.Content title="Traffic GO" titleStyle={styles.menuTitle} />
         </Appbar.Header>
+
+        {/* Hamburger Menu Modal */}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={showMenuModal}
+          onRequestClose={() => setShowMenuModal(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlay} 
+            activeOpacity={1} 
+            onPress={() => setShowMenuModal(false)}
+          >
+            <View style={styles.menuModal}>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setShowMenuModal(false)}
+              >
+                <MaterialCommunityIcons name="close" size={28} color="#333" />
+              </TouchableOpacity>
+
+              <View style={styles.menuHeader}>
+                <MaterialCommunityIcons name="account-circle" size={60} color="#2196F3" />
+                <Text style={styles.menuHeaderText}>Traffic GO</Text>
+                <Text style={styles.menuSubtext}>Navigate Smarter</Text>
+              </View>
+
+              <View style={styles.menuItems}>
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenuModal(false);
+                    // Navigate to account view or show account modal
+                  }}
+                >
+                  <MaterialCommunityIcons name="account" size={24} color="#333" />
+                  <Text style={styles.menuItemText}>Account</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={24} color="#999" />
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenuModal(false);
+                    // Navigate to settings
+                  }}
+                >
+                  <MaterialCommunityIcons name="cog" size={24} color="#333" />
+                  <Text style={styles.menuItemText}>Settings</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={24} color="#999" />
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenuModal(false);
+                    setIndex(3); // Navigate to Saved Routes
+                  }}
+                >
+                  <MaterialCommunityIcons name="bookmark" size={24} color="#333" />
+                  <Text style={styles.menuItemText}>Saved Routes</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={24} color="#999" />
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenuModal(false);
+                    // Show about/help
+                  }}
+                >
+                  <MaterialCommunityIcons name="information" size={24} color="#333" />
+                  <Text style={styles.menuItemText}>About</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={24} color="#999" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.menuFooter}>
+                <Text style={styles.versionText}>Version 1.0.0</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
         {/* Screen body from BottomNavigation */}
         <BottomNavigation
@@ -213,5 +315,77 @@ const styles = StyleSheet.create({
   searchbarInput: {
     fontSize: 16,
     color: '#ffffff',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-start',
+  },
+  menuModal: {
+    backgroundColor: '#fff',
+    width: '80%',
+    height: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+    padding: 5,
+  },
+  menuHeader: {
+    paddingTop: 60,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+    backgroundColor: '#f5f5f5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    alignItems: 'center',
+  },
+  menuHeaderText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 10,
+    fontFamily: 'StackSansNotch-Bold',
+  },
+  menuSubtext: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+  },
+  menuItems: {
+    paddingTop: 10,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  menuItemText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 15,
+    fontFamily: 'StackSansHeadline-Regular',
+  },
+  menuFooter: {
+    position: 'absolute',
+    bottom: 30,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  versionText: {
+    fontSize: 12,
+    color: '#999',
   },
 });

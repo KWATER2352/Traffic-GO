@@ -11,6 +11,7 @@
     "export:web": "expo export:web --output ./web-build"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-navigation/native-stack": "^7.6.2",
     "axios": "^1.13.2",
     "expo": "~54.0.23",
@@ -19,6 +20,7 @@
     "expo-status-bar": "~3.0.8",
     "react": "19.1.0",
     "react-native": "0.81.5",
+    "react-native-dropdown-picker": "^5.4.6",
     "react-native-maps": "1.20.1",
     "react-native-maps-directions": "^1.9.0",
     "react-native-paper": "^5.14.5"

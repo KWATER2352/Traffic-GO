@@ -38,7 +38,7 @@ export default function TrafficUpdate() {
 
         const fetchTraffic = async () => {
             setLoading(true);
-            const apiKey = Constants.manifest.extra.googleMapsApiKey;
+            const apiKey = "AIzaSyB9PCPpvm73q68YlckMHVZVanR-oMf8WpA";
 
             const regions = getRegions(location.latitude, location.longitude);
             const results = [];
@@ -49,8 +49,18 @@ export default function TrafficUpdate() {
                     const originLon = location.longitude;
                     const destLat = region.latitude;
                     const destLon = region.longitude;
-                    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${originLat},${originLon}&destinations=${destLat},${destLon}&key=${apiKey}`;
+                    const departureTime = Math.floor(Date.now() / 1000);
+                    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${originLat},${originLon}&destinations=${destLat},${destLon}&departure_time=${departureTime}&key=${apiKey}`;
                     const response = await axios.get(url);
+                    
+                    console.log('API Response:', response.data);
+                    
+                    if (!response.data || !response.data.rows || !response.data.rows[0] || !response.data.rows[0].elements) {
+                        console.error('Invalid API response structure:', response.data);
+                        results.push({ region: region.name, status: "No Data" });
+                        continue;
+                    }
+                    
                     const data = response.data.rows[0].elements[0];
 
                     let status = "No Data";
@@ -68,6 +78,7 @@ export default function TrafficUpdate() {
 
                     results.push({ region: region.name, status });
                 } catch (e) {
+                    console.error('Error fetching traffic:', e);
                     results.push({ region: region.name, status: "Error fetching data" });
                 }
             }
@@ -100,19 +111,19 @@ export default function TrafficUpdate() {
     };
 
   const getStatusImage = (status) => {
-    const source = statusImages[status];
-    console.log(statusImages);
-    return source ? <Image source={source} style={{ width: 50, height: 50 }} /> : null;
-};
+    return statusImages[status] || null;
+  };
 
     const renderRegionCard = ({ item }) => (
         <View style={[styles.card, { width: width - 40 }]}>
             <Text style={styles.regionName}>{item.region}</Text>
-            <Image
-                source={getStatusImage(item.status)}
-                style={styles.statusImage}
-                resizeMode="contain"
-            />
+            {getStatusImage(item.status) && (
+                <Image
+                    source={getStatusImage(item.status)}
+                    style={styles.statusImage}
+                    resizeMode="contain"
+                />
+            )}
             <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
                 <Text style={styles.statusText}>{item.status || 'Loading...'}</Text>
             </View>

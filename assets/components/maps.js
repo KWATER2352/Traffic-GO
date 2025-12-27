@@ -17,7 +17,10 @@ export default function Maps() {
   const [destSuggestions, setDestSuggestions] = useState([]);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [activeField, setActiveField] = useState(null);
+  const [routeInfo, setRouteInfo] = useState(null);
+  const [showControls, setShowControls] = useState(true);
   const keyboardHeightRef = useRef(0);
+  const mapRef = useRef(null);
 
   const getPlacePredictions = async (query) => {
     try {
@@ -101,6 +104,50 @@ export default function Maps() {
     }
   };
 
+  const useCurrentLocation = async () => {
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        let pos = await Location.getCurrentPositionAsync({});
+        const currentCoords = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        };
+        setOrigin(currentCoords);
+        setOriginText('Current Location');
+        setRegion({
+          ...currentCoords,
+          longitudeDelta: 0.01,
+          latitudeDelta: 0.01,
+        });
+        if (mapRef.current) {
+          mapRef.current.animateToRegion({
+            ...currentCoords,
+            longitudeDelta: 0.01,
+            latitudeDelta: 0.01,
+          }, 1000);
+        }
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+    }
+  };
+
+  const clearRoute = () => {
+    setDestination(null);
+    setDestinationText('');
+    setRouteInfo(null);
+  };
+
+  const swapLocations = () => {
+    const tempOrigin = origin;
+    const tempOriginText = originText;
+    setOrigin(destination);
+    setOriginText(destinationText);
+    setDestination(tempOrigin);
+    setDestinationText(tempOriginText);
+  };
+
   useEffect(() => {
     const keyboardDidShow = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
@@ -145,9 +192,17 @@ export default function Maps() {
   return (
     <View style={styles.container}>
       {region ? (
-        <MapView style={styles.map} region={region}>
-          {origin && <Marker coordinate={origin} title="You are Here" />}
-          {destination && <Marker coordinate={destination} title="Destination" />}
+        <MapView 
+          ref={mapRef}
+          style={styles.map} 
+          region={region}
+          showsUserLocation={true}
+          showsMyLocationButton={false}
+          showsCompass={true}
+          showsTraffic={true}
+        >
+          {origin && <Marker coordinate={origin} title="Origin" pinColor="green" />}
+          {destination && <Marker coordinate={destination} title="Destination" pinColor="red" />}
 
           {origin && destination && (
             <MapViewDirections
@@ -155,13 +210,66 @@ export default function Maps() {
               destination={destination}
               apikey={GOOGLE_MAPS_KEY}
               strokeWidth={5}
-              strokeColor="hotpink"
+              strokeColor="#1f1fc5ff"
+              onReady={(result) => {
+                setRouteInfo({
+                  distance: result.distance,
+                  duration: result.duration
+                });
+                if (mapRef.current) {
+                  mapRef.current.fitToCoordinates(result.coordinates, {
+                    edgePadding: {
+                      top: 100,
+                      right: 50,
+                      bottom: 300,
+                      left: 50,
+                    },
+                    animated: true,
+                  });
+                }
+              }}
             />
           )}
         </MapView>
       ) : (
-        <View style={styles.container} />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading map...</Text>
+        </View>
       )}
+      
+      {/* Route Info Display */}
+      {routeInfo && (
+        <View style={styles.routeInfoContainer}>
+          <Text style={styles.routeInfoText}>📍 {routeInfo.distance.toFixed(1)} km</Text>
+          <Text style={styles.routeInfoText}>⏱️ {Math.round(routeInfo.duration)} min</Text>
+        </View>
+      )}
+
+      {/* Quick Action Buttons */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={useCurrentLocation}
+        >
+          <Text style={styles.actionButtonText}>📍</Text>
+        </TouchableOpacity>
+        {destination && (
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={clearRoute}
+          >
+            <Text style={styles.actionButtonText}>🗑️</Text>
+          </TouchableOpacity>
+        )}
+        {origin && destination && (
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={swapLocations}
+          >
+            <Text style={styles.actionButtonText}>🔄</Text>
+          </TouchableOpacity>
+        )}
+      </View>
       <View
         style={[
           styles.search_container,
@@ -243,14 +351,24 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+  },
   input: {
     backgroundColor: '#fff',
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    paddingVertical: 12,
+    fontSize: 15,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#4CAF50',
   },
   search_container: {
     position: 'absolute',
@@ -258,26 +376,70 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: 'rgba(255, 255, 255, 0.98)',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    padding: 12,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
     zIndex: 100,
-    maxHeight: '40%',
+    maxHeight: '50%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 10,
+    shadowRadius: 8,
+    elevation: 15,
   },
   suggestionItem: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
     backgroundColor: '#fafafa',
+    borderRadius: 4,
+    marginTop: 4,
   },
   suggestionText: {
     fontSize: 14,
     color: '#333',
+  },
+  routeInfoContainer: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    gap: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  routeInfoText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  quickActions: {
+    position: 'absolute',
+    top: 80,
+    right: 20,
+    gap: 10,
+  },
+  actionButton: {
+    backgroundColor: '#4CAF50',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  actionButtonText: {
+    fontSize: 24,
   },
 });
