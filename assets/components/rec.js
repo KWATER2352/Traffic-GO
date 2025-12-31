@@ -8,42 +8,41 @@ import { GOOGLE_MAPS_KEY } from '../local.js';
 
 export default function RouteRecommendation() {
     const [location, setLocation] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [destinationText, setDestinationText] = useState('');
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [recommendations, setRecommendations] = useState([]);
     const [selectedDestination, setSelectedDestination] = useState(null);
     const [savedRoutes, setSavedRoutes] = useState([]);
+    const [isTyping, setIsTyping] = useState(false);
 
     useEffect(() => {
         (async () => {
             let { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                setLoading(false);
+                Alert.alert('Permission Denied', 'Location permission is required for route recommendations.');
                 return;
             }
             let pos = await Location.getCurrentPositionAsync({});
             setLocation(pos.coords);
-            
-            setLoading(false);
         })();
     }, []);
 
-    // Check for destination updates every 2 seconds
+    // Load recent destination only on initial mount, not continuously
     useEffect(() => {
-        const checkForDestination = async () => {
+        const loadInitialDestination = async () => {
+            // Only load on initial mount when there's no destination set
+            if (destinationText || selectedDestination) return;
+            
             try {
                 const recent = await AsyncStorage.getItem('recentDestination');
                 if (recent) {
                     const dest = JSON.parse(recent);
-                    // Only update if it's different from current
-                    if (dest.name !== destinationText || !selectedDestination) {
-                        setDestinationText(dest.name);
-                        setSelectedDestination(dest);
-                        if (location) {
-                            fetchRouteRecommendations(dest);
-                        }
+                    setDestinationText(dest.name);
+                    setSelectedDestination(dest);
+                    if (location) {
+                        fetchRouteRecommendations(dest);
                     }
                 }
             } catch (error) {
@@ -51,10 +50,8 @@ export default function RouteRecommendation() {
             }
         };
 
-        checkForDestination();
-        const interval = setInterval(checkForDestination, 2000);
-        return () => clearInterval(interval);
-    }, [location, destinationText]);
+        loadInitialDestination();
+    }, []);
 
     const getPlacePredictions = async (query) => {
         try {
@@ -69,6 +66,7 @@ export default function RouteRecommendation() {
     };
 
     const handleDestinationChange = async (text) => {
+        setIsTyping(true);
         setDestinationText(text);
         if (text.length > 2) {
             const predictions = await getPlacePredictions(text);
@@ -96,6 +94,7 @@ export default function RouteRecommendation() {
         setDestinationText(description);
         setSuggestions([]);
         setShowSuggestions(false);
+        setIsTyping(false);
         
         const coords = await geocodeLocation(description);
         if (coords && location) {
@@ -209,7 +208,8 @@ export default function RouteRecommendation() {
         <View style={[styles.routeCard, index === 0 && styles.recommendedCard]}>
             {index === 0 && (
                 <View style={styles.recommendedBadge}>
-                    <Text style={styles.recommendedText}>⭐ RECOMMENDED</Text>
+                    <Ionicons name="star" size={14} color="#fff" style={{ marginRight: 5 }} />
+                    <Text style={styles.recommendedText}>RECOMMENDED</Text>
                 </View>
             )}
             
@@ -241,7 +241,10 @@ export default function RouteRecommendation() {
             
             {item.warnings.length > 0 && (
                 <View style={styles.warningsContainer}>
-                    <Text style={styles.warningText}>⚠️ {item.warnings[0]}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                        <Ionicons name="warning" size={16} color="#856404" />
+                        <Text style={styles.warningText}>{item.warnings[0]}</Text>
+                    </View>
                 </View>
             )}
             
@@ -268,22 +271,67 @@ export default function RouteRecommendation() {
                 style={styles.saveButton}
                 onPress={() => saveRoute(item)}
             >
-                <Text style={styles.saveButtonText}>💾 Save Route</Text>
+                <Ionicons name="bookmark" size={16} color="#fff" style={{ marginRight: 5 }} />
+                <Text style={styles.saveButtonText}>Save Route</Text>
             </TouchableOpacity>
         </View>
     );
 
     return (
         <View style={styles.container}>
-            {loading && <ActivityIndicator size="large" color="#4CAF50" style={styles.loader} />}
+            <View style={styles.header}>
+                <Text style={styles.title}>Route Recommendations</Text>
+                <Text style={styles.subtitle}>Find the best routes with real-time traffic</Text>
+            </View>
+
+            {/* Destination Input Section */}
+            <View style={styles.inputSection}>
+                <Text style={styles.inputLabel}>Enter Destination</Text>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Search for a destination..."
+                    placeholderTextColor="#999"
+                    value={destinationText}
+                    onChangeText={handleDestinationChange}
+                    onFocus={() => setIsTyping(true)}
+                    onBlur={() => setTimeout(() => setIsTyping(false), 500)}
+                />
+                {showSuggestions && suggestions.length > 0 && (
+                    <View style={styles.suggestionsContainer}>
+                        <FlatList
+                            data={suggestions.slice(0, 5)}
+                            keyExtractor={(item) => item.place_id}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity
+                                    onPress={() => selectDestination(item.place_id, item.description)}
+                                    style={styles.suggestionItem}
+                                >
+                                    <Ionicons name="location" size={20} color="#666" />
+                                    <Text style={styles.suggestionText}>{item.description}</Text>
+                                </TouchableOpacity>
+                            )}
+                        />
+                    </View>
+                )}
+            </View>
+
+            {loading && (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#4CAF50" />
+                    <Text style={styles.loadingText}>Finding best routes...</Text>
+                </View>
+            )}
             
             {!loading && recommendations.length > 0 && (
                 <View style={styles.resultsContainer}>
-                    <View style={styles.header}>
-                       <Text style={styles.title}>Alternate Routes</Text>
-                        <Text style={styles.resultsTitle}>
-                            📍 To {selectedDestination?.name}
-                        </Text>
+                    <View style={styles.resultsHeader}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Ionicons name="location" size={20} color="#4CAF50" />
+                            <Text style={styles.resultsTitle}>
+                                Routes to {selectedDestination?.name || destinationText}
+                            </Text>
+                        </View>
+                        <Text style={styles.resultsCount}>{recommendations.length} routes found</Text>
                     </View>
                     <FlatList
                         data={recommendations}
@@ -295,10 +343,20 @@ export default function RouteRecommendation() {
                 </View>
             )}
             
-            {!loading && recommendations.length === 0 && (
+            {!loading && recommendations.length === 0 && destinationText.length > 0 && (
                 <View style={styles.emptyState}>
-                    <Text style={styles.emptyIcon}>🗺️</Text>
-                    <Text style={styles.emptyText}>No destination set. Go to Maps tab and use the direction button to set a destination.</Text>
+                    <Ionicons name="map-outline" size={80} color="#ccc" style={{ marginBottom: 20 }} />
+                    <Text style={styles.emptyText}>No routes found. Please select a destination from the suggestions.</Text>
+                </View>
+            )}
+
+            {!loading && recommendations.length === 0 && destinationText.length === 0 && (
+                <View style={styles.emptyState}>
+                    <Ionicons name="car-outline" size={80} color="#4CAF50" style={{ marginBottom: 20 }} />
+                    <Text style={styles.emptyTitle}>Ready to Navigate!</Text>
+                    <Text style={styles.emptyText}>
+                        Enter a destination above or set one in the Maps tab to see route recommendations with live traffic data.
+                    </Text>
                 </View>
             )}
         </View>
@@ -313,7 +371,7 @@ const styles = StyleSheet.create({
     header: {
         backgroundColor: '#4CAF50',
         padding: 20,
-        paddingTop: 40,
+        paddingTop: 20,
     },
     title: {
         fontSize: 28,
@@ -326,6 +384,63 @@ const styles = StyleSheet.create({
         color: '#fff',
         opacity: 0.9,
     },
+    inputSection: {
+        backgroundColor: '#fff',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e0e0e0',
+    },
+    inputLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 8,
+    },
+    input: {
+        backgroundColor: '#f9f9f9',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+        fontSize: 15,
+        borderWidth: 1,
+        borderColor: '#4CAF50',
+    },
+    suggestionsContainer: {
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        marginTop: 8,
+        maxHeight: 200,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    suggestionItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+        gap: 10,
+    },
+    suggestionText: {
+        fontSize: 14,
+        color: '#333',
+        flex: 1,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        marginTop: 15,
+        fontSize: 16,
+        color: '#666',
+        fontWeight: '500',
+    },
     loader: {
         marginTop: 50,
     },
@@ -333,11 +448,18 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 16,
     },
+    resultsHeader: {
+        marginBottom: 15,
+    },
     resultsTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#fff',
-        opacity: 0.95,
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 5,
+    },
+    resultsCount: {
+        fontSize: 14,
+        color: '#666',
     },
     listContent: {
         paddingBottom: 20,
@@ -367,6 +489,8 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         alignSelf: 'flex-start',
         marginBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     recommendedText: {
         color: '#fff',
@@ -459,10 +583,18 @@ const styles = StyleSheet.create({
         fontSize: 64,
         marginBottom: 20,
     },
+    emptyTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 10,
+        textAlign: 'center',
+    },
     emptyText: {
         fontSize: 16,
         color: '#999',
         textAlign: 'center',
+        lineHeight: 24,
     },
     saveButton: {
         backgroundColor: '#4CAF50',
@@ -470,6 +602,8 @@ const styles = StyleSheet.create({
         padding: 12,
         alignItems: 'center',
         marginTop: 10,
+        flexDirection: 'row',
+        justifyContent: 'center',
     },
     saveButtonText: {
         color: '#fff',

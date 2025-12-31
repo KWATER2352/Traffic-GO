@@ -1,27 +1,154 @@
-<<<<<<< HEAD
 # Traffic-GO
-## Traffic GO is a React Native App meant to help users navigate traffic with alternate routes and information of high volume areas nearby.
+
+A React Native mobile application that helps users navigate traffic with real-time updates, alternate route recommendations, and information about high-volume areas nearby.
+
+## Purpose
+
+Traffic-GO provides:
+- **Real-time traffic updates** for your current location
+- **Route recommendations** with traffic-aware directions
+- **Incident reporting** to alert other users
+- **Saved routes** for frequently traveled paths
+- **Interactive maps** with traffic visualization
+- **Smart navigation** using Google Maps integration
+
+## Features
+
+- 🗺️ Interactive maps with real-time traffic data
+- 🚦 Traffic level monitoring (Low, Moderate, Heavy, Very Heavy)
+- 📍 Location-based traffic updates
+- 🛣️ Alternative route suggestions
+- 💾 Save and manage favorite routes
+- ⚠️ Report and view traffic incidents
+- 📱 Cross-platform support (iOS, Android, Web)
+
+## Tech Stack
+
+- **React Native** with Expo
+- **React Navigation** for routing
+- **Google Maps API** for maps and directions
+- **React Native Maps** for map rendering
+- **Axios** for API requests
+- **AsyncStorage** for local data persistence
+- **Jest** and React Testing Library for testing
+
+## Setup
+
+### Prerequisites
+
+- Node.js (v16 or higher)
+- npm or yarn
+- Expo CLI
+- iOS Simulator (for iOS development) or Android Emulator (for Android development)
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/Traffic-GO.git
+cd Traffic-GO
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Set up environment variables:
+   - Create a `.env` file in the root directory
+   - Add your Google Maps API key:
+   ```
+   GOOGLE_MAPS_API_KEY=your_api_key_here
+   ```
+
+### Running the App
+
+Start the development server:
+```bash
+npm start
+```
+
+Run on specific platforms:
+```bash
+npm run android    # Run on Android
+npm run ios        # Run on iOS
+npm run web        # Run in web browser
+```
+
+## Testing
+
+The project includes comprehensive test coverage with unit, integration, and component tests.
+
+### Run all tests:
+```bash
+npm test
+```
+
+### Run tests in watch mode:
+```bash
+npm run test:watch
+```
+
+### Generate coverage report:
+```bash
+npm run test:coverage
+```
+
+For detailed testing documentation, see [TESTING.md](TESTING.md).
+
+## Project Structure
+
+```
+Traffic-GO/
+├── assets/
+│   ├── components/      # React components
+│   │   ├── maps.js
+│   │   ├── trafficUpdate.js
+│   │   ├── incidentReport.js
+│   │   ├── rec.js       # Route recommendations
+│   │   ├── savedRoutes.js
+│   │   └── searchy.js
+│   └── images/          # Image assets
+├── __tests__/           # Test files
+│   ├── integration/
+│   └── utils/
+├── App.js               # Main app component
+├── index.js             # Entry point
+└── package.json         # Dependencies
+```
 
 ## Deploying the Web App
 
 This repository includes a GitHub Actions workflow (`.github/workflows/deploy-web.yml`) that builds the Expo web app and deploys the static output to GitHub Pages on pushes to `main`.
 
-Quick local commands:
-
+### Build for web:
 ```bash
-# install deps
-npm ci
+npm run build:web
+```
 
-# export a static web build into ./web-build
+### Export static web build:
+```bash
 npm run export:web
+```
 
-# serve the build locally (optional - requires a static server)
+### Serve locally (optional):
+```bash
 npx serve web-build
 ```
 
-Notes:
-- Ensure your repo is pushed to GitHub and GitHub Pages is enabled (branch: `gh-pages` or use the repository settings default). The workflow uses the built-in `GITHUB_TOKEN` to push.
-- If you prefer another target (EAS builds for app stores, Netlify, Vercel), tell me and I can add config for that.
-=======
-## Traffic GO is a React Native App meant to help users navigate traffic with alternate routes and information of high volume areas nearby.
->>>>>>> 798e9a5149ce5ba752d800eaa8c76164c52165de
+**Notes:**
+- Ensure your repo is pushed to GitHub and GitHub Pages is enabled (branch: `gh-pages` or use the repository settings default)
+- The workflow uses the built-in `GITHUB_TOKEN` to push
+- For other deployment targets (EAS builds for app stores, Netlify, Vercel), additional configuration may be needed
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is open source and available under the MIT License.
+
+## Support
+
+For issues, questions, or suggestions, please open an issue on GitHub.

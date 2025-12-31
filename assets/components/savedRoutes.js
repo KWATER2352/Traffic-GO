@@ -119,7 +119,7 @@ export default function SavedRoutes() {
 
             {savedRoutes.length === 0 ? (
                 <View style={styles.emptyState}>
-                    <Text style={styles.emptyIcon}>📍</Text>
+                    <Entypo name="location-pin" size={64} color="#ccc" />
                     <Text style={styles.emptyText}>No saved routes yet</Text>
                     <Text style={styles.emptySubtext}>
                         Save routes from the Route Recommendations tab

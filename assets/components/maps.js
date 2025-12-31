@@ -8,10 +8,15 @@ import { Ionicons, Entypo } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
-export default function Maps() {
+export default function Maps({ initialDestination }) {
   const [origin, setOrigin] = useState(null);
   const [destination, setDestination] = useState(null);
-  const [region, setRegion] = useState(null);
+  const [region, setRegion] = useState({
+    latitude: 37.78825,
+    longitude: -122.4324,
+    latitudeDelta: 0.05,
+    longitudeDelta: 0.05,
+  });
   const [errorMsg, setErrorMsg] = useState(null);
   const [originText, setOriginText] = useState('');
   const [destinationText, setDestinationText] = useState('');
@@ -23,6 +28,8 @@ export default function Maps() {
   const [showControls, setShowControls] = useState(true);
   const keyboardHeightRef = useRef(0);
   const mapRef = useRef(null);
+  const originDebounceRef = useRef(null);
+  const destDebounceRef = useRef(null);
 
   const getPlacePredictions = async (query) => {
     try {
@@ -36,11 +43,31 @@ export default function Maps() {
     }
   };
 
+  const getShortAddress = (fullAddress) => {
+    // Extract main address
+    const parts = fullAddress.split(',');
+    if (parts.length > 0 && parts[0].length <= 40) {
+      return parts[0].trim();
+    }
+    return fullAddress.length > 40 ? fullAddress.substring(0, 37) + '...' : fullAddress;
+  };
+
   const handleOriginTextChange = async (text) => {
     setOriginText(text);
+    if (text !== 'Current Location' && text.length < 3 && origin) {
+      setOrigin(null);
+    }
+    
+    if (originDebounceRef.current) {
+      clearTimeout(originDebounceRef.current);
+    }
+    
     if (text.length > 2) {
-      const suggestions = await getPlacePredictions(text);
-      setOriginSuggestions(suggestions);
+      // Debounce API call by 300ms
+      originDebounceRef.current = setTimeout(async () => {
+        const suggestions = await getPlacePredictions(text);
+        setOriginSuggestions(suggestions);
+      }, 300);
     } else {
       setOriginSuggestions([]);
     }
@@ -48,18 +75,28 @@ export default function Maps() {
 
   const handleDestTextChange = async (text) => {
     setDestinationText(text);
+    
+    // Clear previous debounce timer
+    if (destDebounceRef.current) {
+      clearTimeout(destDebounceRef.current);
+    }
+    
     if (text.length > 2) {
-      const suggestions = await getPlacePredictions(text);
-      setDestSuggestions(suggestions);
+      // Debounce API call by 300ms
+      destDebounceRef.current = setTimeout(async () => {
+        const suggestions = await getPlacePredictions(text);
+        setDestSuggestions(suggestions);
+      }, 300);
     } else {
       setDestSuggestions([]);
     }
   };
 
   const selectOriginSuggestion = async (placeId, description) => {
-    setOriginText(description);
+    const shortAddress = getShortAddress(description);
+    setOriginText(shortAddress);
     setOriginSuggestions([]);
-    // Geocode the place
+    // Geocode the place using full description for accuracy
     const coords = await geocodeLocation(description);
     if (coords) {
       setOrigin(coords);
@@ -69,18 +106,19 @@ export default function Maps() {
   };
 
   const selectDestSuggestion = async (placeId, description) => {
-    setDestinationText(description);
+    const shortAddress = getShortAddress(description);
+    setDestinationText(shortAddress);
     setDestSuggestions([]);
-    // Geocode the place
+    // Geocode the place using full description for accuracy
     const coords = await geocodeLocation(description);
     if (coords) {
       setDestination(coords);
-      // Auto-save to recommendations
+      // Auto-save to recommendations with short name
       try {
         const recentDest = {
           latitude: coords.latitude,
           longitude: coords.longitude,
-          name: description,
+          name: shortAddress,
           timestamp: new Date().toISOString(),
         };
         await AsyncStorage.setItem('recentDestination', JSON.stringify(recentDest));
@@ -104,6 +142,11 @@ export default function Maps() {
   };
 
   const handleOriginSearch = async () => {
+    if (!originText || originText.trim() === '') return;
+    if (originText === 'Current Location') {
+      await useCurrentLocation();
+      return;
+    }
     const coords = await geocodeLocation(originText);
     if (coords) {
       setOrigin(coords);
@@ -112,6 +155,7 @@ export default function Maps() {
   };
 
   const handleDestinationSearch = async () => {
+    if (!destinationText || destinationText.trim() === '') return;
     const coords = await geocodeLocation(destinationText);
     if (coords) {
       setDestination(coords);
@@ -238,6 +282,9 @@ export default function Maps() {
     return () => {
       keyboardDidShow.remove();
       keyboardDidHide.remove();
+      // Clean up debounce timers
+      if (originDebounceRef.current) clearTimeout(originDebounceRef.current);
+      if (destDebounceRef.current) clearTimeout(destDebounceRef.current);
     };
   }, []);
 
@@ -249,30 +296,59 @@ export default function Maps() {
         return;
       }
       let pos = await Location.getCurrentPositionAsync({});
-      setOrigin({
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
-      })
+      // Only center map on user's location, don't auto-set as origin
       setRegion({
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
-        longitudeDelta: 0.01,
-        latitudeDelta: 0.01,
+        longitudeDelta: 0.05,
+        latitudeDelta: 0.05,
       })
     })();
   }, []);
+
+  // Handle initial destination from home search
+  useEffect(() => {
+    if (initialDestination) {
+      const setupRouteFromHome = async () => {
+        // Set user's current location as origin
+        try {
+          let { status } = await Location.requestForegroundPermissionsAsync();
+          if (status === 'granted') {
+            let pos = await Location.getCurrentPositionAsync({});
+            const currentCoords = {
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            };
+            setOrigin(currentCoords);
+            setOriginText('Current Location');
+          }
+        } catch (error) {
+          console.error('Error getting location:', error);
+        }
+
+        // Set the searched destination
+        setDestinationText(initialDestination);
+        const coords = await geocodeLocation(initialDestination);
+        if (coords) {
+          setDestination(coords);
+        }
+      };
+      
+      setupRouteFromHome();
+    }
+  }, [initialDestination]);
   return (
     <View style={styles.container}>
-      {region ? (
-        <MapView 
-          ref={mapRef}
-          style={styles.map} 
-          region={region}
-          showsUserLocation={true}
-          showsMyLocationButton={false}
-          showsCompass={true}
-          showsTraffic={true}
-        >
+      <MapView 
+        ref={mapRef}
+        style={styles.map} 
+        region={region}
+        showsUserLocation={true}
+        showsMyLocationButton={false}
+        showsCompass={true}
+        showsTraffic={true}
+      >
+          {origin && <Marker coordinate={origin} title="Origin" pinColor="green" />}
           {destination && <Marker coordinate={destination} title="Destination" pinColor="red" />}
 
           {origin && destination && (
@@ -280,8 +356,8 @@ export default function Maps() {
               origin={origin}
               destination={destination}
               apikey={GOOGLE_MAPS_KEY}
-              strokeWidth={4}
-              strokeColor="#ffffffd2"
+              strokeWidth={5}
+              strokeColor="#4A90E2"
               onReady={(result) => {
                 setRouteInfo({
                   distance: result.distance,
@@ -301,12 +377,7 @@ export default function Maps() {
               }}
             />
           )}
-        </MapView>
-      ) : (
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading map...</Text>
-        </View>
-      )}
+      </MapView>
       
       {/* Route Info Display */}
       {routeInfo && (
@@ -344,6 +415,14 @@ export default function Maps() {
             onPress={swapLocations}
           >
             <Entypo name="swap" size={30} style={styles.actionButtonText} color="#1f2312d2" />
+          </TouchableOpacity>
+        )}
+        {routeInfo && (
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.saveButton]}
+            onPress={saveRoute}
+          >
+            <Ionicons name="bookmark" size={28} style={styles.actionButtonText} color="#fff" />
           </TouchableOpacity>
         )}
       </View>
@@ -519,6 +598,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+  },
+  saveButton: {
+    backgroundColor: '#FF9800',
   },
   actionButtonText: {
     fontSize: 24,

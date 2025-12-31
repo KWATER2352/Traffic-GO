@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Keyboard, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Keyboard, ScrollView, KeyboardAvoidingView, Platform, Alert } from "react-native";
 import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
 import Dropy from "./dropdown";
+import { GOOGLE_MAPS_KEY } from '../local.js';
 
-const GOOGLE_MAPS_KEY = "AIzaSyB9PCPpvm73q68YlckMHVZVanR-oMf8WpA";
 
 export default function IncidentReport() {
   const [location, setLocation] = useState(null);
@@ -12,12 +13,33 @@ export default function IncidentReport() {
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [additionalDetails, setAdditionalDetails] = useState('');
-  const [handleSubmit, setHandleSubmit] = useState(() => {
-    // Placeholder for submit handler
-    return () => {
-      console.log("Report submitted");
-    };
-  });
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
+  const handleSubmit = () => {
+    if (!locationText || locationText.trim() === '') {
+      Alert.alert('Missing Information', 'Please enter or select a location for the incident.');
+      return;
+    }
+    
+    // Simulate submission (you can add actual API call here)
+    console.log('Report submitted:', {
+      location: locationText,
+      coordinates: location,
+      details: additionalDetails,
+      timestamp: new Date().toISOString()
+    });
+    
+    setIsSubmitted(true);
+  };
+
+  const resetForm = () => {
+    setIsSubmitted(false);
+    setLocationText('');
+    setAdditionalDetails('');
+    setLocation(null);
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
 
   useEffect(() => {
     (async () => {
@@ -109,6 +131,39 @@ export default function IncidentReport() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      {isSubmitted ? (
+        // Success Screen
+        <View style={styles.successContainer}>
+          <View style={styles.successContent}>
+            <View style={styles.successIconContainer}>
+              <Ionicons name="checkmark-circle" size={100} color="#4CAF50" />
+            </View>
+            <Text style={styles.successTitle}>Report Submitted!</Text>
+            <Text style={styles.successMessage}>
+              Thank you for reporting this incident. Your report helps keep other drivers informed and safe.
+            </Text>
+            <View style={styles.successDetails}>
+              <View style={styles.detailRow}>
+                <Ionicons name="location" size={20} color="#666" />
+                <Text style={styles.detailText}>{locationText}</Text>
+              </View>
+              {additionalDetails && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="document-text" size={20} color="#666" />
+                  <Text style={styles.detailText} numberOfLines={3}>{additionalDetails}</Text>
+                </View>
+              )}
+            </View>
+            <TouchableOpacity 
+              style={styles.doneButton}
+              onPress={resetForm}
+            >
+              <Text style={styles.buttonText}>Report Another Incident</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        // Original Form
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -181,13 +236,6 @@ export default function IncidentReport() {
         </View>
            
           <View style={styles.submitButtonContainer}>
-            <TextInput
-              style={styles.buttonText}
-              value={locationText}
-              onChangeText={handleLocationTextChange}
-              onFocus={() => setShowSuggestions(locationText.length > 2 && suggestions.length > 0)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-            />
             <TouchableOpacity 
               style={styles.submitButton} 
               onPress={handleSubmit}
@@ -197,6 +245,7 @@ export default function IncidentReport() {
           </View>
         
       </ScrollView>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -293,7 +342,7 @@ const styles = StyleSheet.create({
     minHeight: 120,
     maxHeight: 200,
   },
-    submitButtonContainer: {
+  submitButtonContainer: {
     alignItems: 'center',
   },
   submitButton: {
@@ -301,5 +350,68 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 15,
     paddingHorizontal: 40,
+  },
+  successContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    padding: 20,
+  },
+  successContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    maxWidth: 400,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  successIconContainer: {
+    marginBottom: 20,
+  },
+  successTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  successMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 24,
+  },
+  successDetails: {
+    width: '100%',
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 25,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+    gap: 10,
+  },
+  detailText: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
+  doneButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 10,
+    paddingVertical: 15,
+    paddingHorizontal: 40,
+    width: '100%',
+    alignItems: 'center',
   },
 });

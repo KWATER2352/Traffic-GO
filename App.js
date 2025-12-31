@@ -3,7 +3,7 @@ import { View, StyleSheet, ImageBackground, ActivityIndicator, Animated, Modal, 
 import { ScrollView } from 'react-native';
 import { Provider as PaperProvider, Appbar, Text, BottomNavigation, Button, Dialog, Portal} from 'react-native-paper';
 import { useFonts } from 'expo-font';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Entypo } from '@expo/vector-icons';
 import { NavigationContainer } from '@react-navigation/native';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -16,7 +16,7 @@ import RouteRecommendation from './assets/components/rec';
 import SavedRoutes from './assets/components/savedRoutes';
 
 // Route components
-const HomeRoute = ({ showTraffic, setShowTraffic, trafficFadeAnim, showIncidentReport, setShowIncidentReport, navigateToRoutes }) => {
+const HomeRoute = ({ showTraffic, setShowTraffic, trafficFadeAnim, showIncidentReport, setShowIncidentReport, navigateToRoutes, navigateToMapsWithDestination, navigateToSavedRoutes }) => {
   if (showIncidentReport) {
     return <IncidentReport />;
   }
@@ -31,20 +31,24 @@ const HomeRoute = ({ showTraffic, setShowTraffic, trafficFadeAnim, showIncidentR
 
   return (
     <View style={styles.routeContainer}>
-      <MySearch style={styles.searchbar} inputStyle={styles.searchbarInput} />
+      <MySearch 
+        style={styles.searchbar} 
+        inputStyle={styles.searchbarInput}
+        onSearch={navigateToMapsWithDestination}
+      />
       <View style={styles.buttonsContainer}>
         <Button mode="contained" style={styles.updateButton} onPress={() => setShowTraffic(true)}>
           <Text style={styles.buttonText}>Real Time Traffic Updates</Text>
         </Button>
         <Button mode="contained" style={styles.updateButton} onPress={() => navigateToRoutes()}><Text style={styles.buttonText}>Recommended Routes</Text></Button>
-        <Button mode="contained" style={styles.updateButton} onPress={() => {}}><Text style={styles.buttonText}>Current Traffic Level</Text></Button>
+        <Button mode="contained" style={styles.updateButton} onPress={() => navigateToSavedRoutes()}><Text style={styles.buttonText}>Saved Routes</Text></Button>
         <Button mode="contained" style={styles.updateButton} onPress={() => setShowIncidentReport(true)}><Text style={styles.buttonText}>Report Incident</Text></Button>
       </View>
     </View>
   );
 };
 
-const MapsRoute = () => (
+const MapsRoute = ({ initialDestination }) => (
   <View style={styles.container}>
     {/* <ImageBackground
       source={require('./assets/icon.png')}
@@ -53,7 +57,7 @@ const MapsRoute = () => (
     >
       <Text style={[styles.text, styles.textOnImage]}>Welcome to Traffic GO</Text>
     </ImageBackground> */}
-    <Maps />
+    <Maps initialDestination={initialDestination} />
   </View>
 );
 
@@ -80,6 +84,12 @@ export default function App() {
   const [showIncidentReport, setShowIncidentReport] = React.useState(false);
   const [trafficFadeAnim] = React.useState(new Animated.Value(0));
   const [showMenuModal, setShowMenuModal] = React.useState(false);
+  const [initialDestination, setInitialDestination] = React.useState(null);
+
+  const navigateToMapsWithDestination = (destination) => {
+    setInitialDestination(destination);
+    setIndex(1); // Navigate to Maps tab
+  };
 
   React.useEffect(() => {
     Animated.timing(trafficFadeAnim, {
@@ -96,10 +106,10 @@ export default function App() {
   }, [index]);
 
   const [routes] = React.useState([
-    { key: 'home', title: 'Home', icon: 'home' },
-    { key: 'maps', title: 'Maps', icon: 'map' },
-  { key: 'routes', title: 'Routes', icon: 'map' },
-    { key: 'settings', title: 'Saved', icon: 'bookmark' },
+    { key: 'home', title: 'Home', icon: 'home', iconLibrary: 'MaterialCommunityIcons' },
+    { key: 'maps', title: 'Maps', icon: 'map', iconLibrary: 'MaterialCommunityIcons' },
+  { key: 'routes', title: 'Routes', icon: 'direction', iconLibrary: 'Entypo' },
+    { key: 'settings', title: 'Saved', icon: 'archive', iconLibrary: 'Entypo' },
   ]);
 
   if (!fontsLoaded) {
@@ -120,9 +130,11 @@ export default function App() {
           showIncidentReport={showIncidentReport} 
           setShowIncidentReport={setShowIncidentReport}
           navigateToRoutes={() => setIndex(2)}
+          navigateToMapsWithDestination={navigateToMapsWithDestination}
+          navigateToSavedRoutes={() => setIndex(3)}
         />;
       case 'maps':
-        return <MapsRoute />;
+        return <MapsRoute initialDestination={initialDestination} />;
       case 'routes':
         return <RoutesRoute />;
       case 'settings':
@@ -235,9 +247,12 @@ export default function App() {
           barStyle={styles.bottomNav}
           activeColor="#1f2312d2"
           inactiveColor="rgba(255, 255, 255, 0.6)"
-          renderIcon={({ route, color }) => (
-            <MaterialCommunityIcons name={route.icon} size={24} color={color} />
-          )}
+          renderIcon={({ route, color }) => {
+            if (route.iconLibrary === 'Entypo') {
+              return <Entypo name={route.icon} size={24} color={color} />;
+            }
+            return <MaterialCommunityIcons name={route.icon} size={24} color={color} />;
+          }}
         />
       </View>
     </PaperProvider>
