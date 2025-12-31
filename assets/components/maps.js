@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import MapView, { Marker } from 'react-native-maps';
-import { StyleSheet, View, Text, TextInput, KeyboardAvoidingView, Platform, ScrollView, Keyboard, FlatList, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, TextInput, KeyboardAvoidingView, Platform, ScrollView, Keyboard, FlatList, TouchableOpacity, Animated, Dimensions, Alert } from 'react-native';
 import MapViewDirections from 'react-native-maps-directions';
 import * as Location from 'expo-location';
-const GOOGLE_MAPS_KEY = "AIzaSyB9PCPpvm73q68YlckMHVZVanR-oMf8WpA";
+import { GOOGLE_MAPS_KEY } from '../local.js';
+import { Ionicons, Entypo } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 export default function Maps() {
@@ -73,6 +75,18 @@ export default function Maps() {
     const coords = await geocodeLocation(description);
     if (coords) {
       setDestination(coords);
+      // Auto-save to recommendations
+      try {
+        const recentDest = {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          name: description,
+          timestamp: new Date().toISOString(),
+        };
+        await AsyncStorage.setItem('recentDestination', JSON.stringify(recentDest));
+      } catch (error) {
+        console.error('Error auto-saving destination:', error);
+      }
     }
     Keyboard.dismiss();
   };
@@ -148,6 +162,64 @@ export default function Maps() {
     setDestinationText(tempOriginText);
   };
 
+  const saveToRecommendations = async () => {
+    if (!destination) {
+      Alert.alert('No Destination', 'Please set a destination first.');
+      return;
+    }
+
+    try {
+      const recentDest = {
+        latitude: destination.latitude,
+        longitude: destination.longitude,
+        name: destinationText,
+        timestamp: new Date().toISOString(),
+      };
+      await AsyncStorage.setItem('recentDestination', JSON.stringify(recentDest));
+      Alert.alert('Saved', 'Destination saved! Switch to Routes tab to see recommendations.');
+    } catch (error) {
+      console.error('Error saving destination:', error);
+    }
+  };
+
+  const saveRoute = async () => {
+    if (!origin || !destination || !routeInfo) {
+      Alert.alert('Cannot Save', 'Please set both origin and destination to save a route.');
+      return;
+    }
+
+    try {
+      const newRoute = {
+        name: originText,
+        destination: {
+          name: destinationText,
+          coordinates: destination,
+        },
+        origin: {
+          name: originText,
+          coordinates: origin,
+        },
+        via: 'Best Route',
+        distance: `${Math.round(routeInfo.distance)} km`,
+        duration: `${Math.round(routeInfo.duration)} min`,
+        trafficDuration: `${Math.round(routeInfo.duration * 1.2)} min`,
+        trafficLevel: 'Moderate',
+        trafficColor: '#FFA500',
+        savedAt: new Date().toISOString(),
+      };
+
+      const stored = await AsyncStorage.getItem('savedRoutes');
+      const routes = stored ? JSON.parse(stored) : [];
+      routes.unshift(newRoute);
+      await AsyncStorage.setItem('savedRoutes', JSON.stringify(routes));
+      
+      Alert.alert('Success', 'Route saved successfully!');
+    } catch (error) {
+      console.error('Error saving route:', error);
+      Alert.alert('Error', 'Failed to save route.');
+    }
+  };
+
   useEffect(() => {
     const keyboardDidShow = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
@@ -201,7 +273,6 @@ export default function Maps() {
           showsCompass={true}
           showsTraffic={true}
         >
-          {origin && <Marker coordinate={origin} title="Origin" pinColor="green" />}
           {destination && <Marker coordinate={destination} title="Destination" pinColor="red" />}
 
           {origin && destination && (
@@ -209,8 +280,8 @@ export default function Maps() {
               origin={origin}
               destination={destination}
               apikey={GOOGLE_MAPS_KEY}
-              strokeWidth={5}
-              strokeColor="#1f1fc5ff"
+              strokeWidth={4}
+              strokeColor="#ffffffd2"
               onReady={(result) => {
                 setRouteInfo({
                   distance: result.distance,
@@ -240,8 +311,14 @@ export default function Maps() {
       {/* Route Info Display */}
       {routeInfo && (
         <View style={styles.routeInfoContainer}>
-          <Text style={styles.routeInfoText}>📍 {routeInfo.distance.toFixed(1)} km</Text>
-          <Text style={styles.routeInfoText}>⏱️ {Math.round(routeInfo.duration)} min</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <Ionicons name="car" size={30} style={styles.actionButtonText} color="#1f2312d2" />
+            <Text style={styles.routeInfoText}>{Math.round(routeInfo.distance)} km</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <Ionicons name="timer" size={30} style={styles.actionButtonText} color="#1f2312d2" />
+            <Text style={styles.routeInfoText}>{Math.round(routeInfo.duration)} min</Text>
+          </View>
         </View>
       )}
 
@@ -251,14 +328,14 @@ export default function Maps() {
           style={styles.actionButton}
           onPress={useCurrentLocation}
         >
-          <Text style={styles.actionButtonText}>📍</Text>
+           <Entypo name="location-pin" size={30} style={styles.actionButtonText} color="#1f2312d2" />
         </TouchableOpacity>
         {destination && (
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={clearRoute}
           >
-            <Text style={styles.actionButtonText}>🗑️</Text>
+        <Entypo name="trash" size={30} style={styles.actionButtonText} color="#1f2312d2" />
           </TouchableOpacity>
         )}
         {origin && destination && (
@@ -266,7 +343,7 @@ export default function Maps() {
             style={styles.actionButton}
             onPress={swapLocations}
           >
-            <Text style={styles.actionButtonText}>🔄</Text>
+            <Entypo name="swap" size={30} style={styles.actionButtonText} color="#1f2312d2" />
           </TouchableOpacity>
         )}
       </View>
@@ -294,11 +371,12 @@ export default function Maps() {
             returnKeyType="search"
           />
           {activeField === 'origin' && originSuggestions.length > 0 && (
-            <FlatList
-              data={originSuggestions}
-              keyExtractor={(item) => item.place_id}
-              scrollEnabled={false}
-              renderItem={({ item }) => (
+            <View style={{ maxHeight: 200 }}>
+              <FlatList
+                data={originSuggestions.slice(0, 5)}
+                keyExtractor={(item) => item.place_id}
+                scrollEnabled={false}
+                renderItem={({ item }) => (
                 <TouchableOpacity
                   onPress={() => selectOriginSuggestion(item.place_id, item.description)}
                   style={styles.suggestionItem}
@@ -307,6 +385,7 @@ export default function Maps() {
                 </TouchableOpacity>
               )}
             />
+            </View>
           )}
         </View>
 
@@ -323,11 +402,12 @@ export default function Maps() {
             returnKeyType="search"
           />
           {activeField === 'destination' && destSuggestions.length > 0 && (
-            <FlatList
-              data={destSuggestions}
-              keyExtractor={(item) => item.place_id}
-              scrollEnabled={false}
-              renderItem={({ item }) => (
+            <View style={{ maxHeight: 200 }}>
+              <FlatList
+                data={destSuggestions.slice(0, 5)}
+                keyExtractor={(item) => item.place_id}
+                scrollEnabled={false}
+                renderItem={({ item }) => (
                 <TouchableOpacity
                   onPress={() => selectDestSuggestion(item.place_id, item.description)}
                   style={styles.suggestionItem}
@@ -336,6 +416,7 @@ export default function Maps() {
                 </TouchableOpacity>
               )}
             />
+            </View>
           )}
         </View>
       </View>
@@ -427,7 +508,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   actionButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#5aab5de6',
     width: 50,
     height: 50,
     borderRadius: 25,

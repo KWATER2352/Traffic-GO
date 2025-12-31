@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, FlatList, Dimensions, Animat
 import * as Location from 'expo-location';
 import axios from 'axios';
 import Constants from 'expo-constants';
-
+import { GOOGLE_MAPS_KEY } from '../local.js';
 
 const { width } = Dimensions.get('window');
 
@@ -38,7 +38,7 @@ export default function TrafficUpdate() {
 
         const fetchTraffic = async () => {
             setLoading(true);
-            const apiKey = "AIzaSyB9PCPpvm73q68YlckMHVZVanR-oMf8WpA";
+            const apiKey = GOOGLE_MAPS_KEY;
 
             const regions = getRegions(location.latitude, location.longitude);
             const results = [];

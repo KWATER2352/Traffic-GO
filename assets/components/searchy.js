@@ -6,9 +6,10 @@ const MySearch = () => {
 
   return (
     <Searchbar
-      placeholder=""
+      placeholder="Search for a destination"
       onChangeText={setSearchQuery}
       value={searchQuery}
+      style={{ marginHorizontal: 20, borderColor: '#4CAF50', borderWidth: 1 }}
     />
   );
 };

@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, 
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-
-const GOOGLE_MAPS_KEY = "AIzaSyB9PCPpvm73q68YlckMHVZVanR-oMf8WpA";
+import { Ionicons, Entypo, Fontisto } from '@expo/vector-icons';
+import { GOOGLE_MAPS_KEY } from '../local.js';
 
 export default function RouteRecommendation() {
     const [location, setLocation] = useState(null);
@@ -25,9 +25,36 @@ export default function RouteRecommendation() {
             }
             let pos = await Location.getCurrentPositionAsync({});
             setLocation(pos.coords);
+            
             setLoading(false);
         })();
     }, []);
+
+    // Check for destination updates every 2 seconds
+    useEffect(() => {
+        const checkForDestination = async () => {
+            try {
+                const recent = await AsyncStorage.getItem('recentDestination');
+                if (recent) {
+                    const dest = JSON.parse(recent);
+                    // Only update if it's different from current
+                    if (dest.name !== destinationText || !selectedDestination) {
+                        setDestinationText(dest.name);
+                        setSelectedDestination(dest);
+                        if (location) {
+                            fetchRouteRecommendations(dest);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading recent destination:', error);
+            }
+        };
+
+        checkForDestination();
+        const interval = setInterval(checkForDestination, 2000);
+        return () => clearInterval(interval);
+    }, [location, destinationText]);
 
     const getPlacePredictions = async (query) => {
         try {
@@ -117,42 +144,6 @@ export default function RouteRecommendation() {
                         via: route.summary || "Direct route",
                         warnings: leg.warnings || [],
                     };
-
-    const saveRoute = async (route) => {
-        try {
-            const routeToSave = {
-                ...route,
-                origin: {
-                    latitude: location.latitude,
-                    longitude: location.longitude,
-                },
-                destination: selectedDestination,
-                savedAt: new Date().toISOString(),
-            };
-
-            const existing = await AsyncStorage.getItem('savedRoutes');
-            const routes = existing ? JSON.parse(existing) : [];
-            
-            // Check if route already exists
-            const isDuplicate = routes.some(r => 
-                r.name === route.name && 
-                r.destination.name === selectedDestination.name
-            );
-            
-            if (isDuplicate) {
-                Alert.alert('Already Saved', 'This route is already in your saved routes.');
-                return;
-            }
-            
-            routes.push(routeToSave);
-            await AsyncStorage.setItem('savedRoutes', JSON.stringify(routes));
-            setSavedRoutes(routes);
-            Alert.alert('Success', 'Route saved successfully!');
-        } catch (error) {
-            console.error('Error saving route:', error);
-            Alert.alert('Error', 'Failed to save route');
-        }
-    };
                 });
                 
                 // Sort by traffic duration
@@ -163,6 +154,54 @@ export default function RouteRecommendation() {
             console.error('Error fetching routes:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const saveRoute = async (route) => {
+        try {
+            const routeToSave = {
+                name: selectedDestination?.name || 'Saved Route',
+                destination: {
+                    name: selectedDestination?.name || destinationText,
+                    coordinates: selectedDestination,
+                },
+                origin: {
+                    name: 'Current Location',
+                    coordinates: {
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                    }
+                },
+                via: route.via,
+                distance: route.distance,
+                duration: route.duration,
+                trafficDuration: route.trafficDuration,
+                trafficLevel: route.trafficLevel,
+                trafficColor: route.trafficColor,
+                savedAt: new Date().toISOString(),
+            };
+
+            const existing = await AsyncStorage.getItem('savedRoutes');
+            const routes = existing ? JSON.parse(existing) : [];
+            
+            // Check if route already exists
+            const isDuplicate = routes.some(r => 
+                r.destination?.name === selectedDestination?.name &&
+                r.via === route.via
+            );
+            
+            if (isDuplicate) {
+                Alert.alert('Already Saved', 'This route is already in your saved routes.');
+                return;
+            }
+            
+            routes.unshift(routeToSave);
+            await AsyncStorage.setItem('savedRoutes', JSON.stringify(routes));
+            setSavedRoutes(routes);
+            Alert.alert('Success', 'Route saved successfully!');
+        } catch (error) {
+            console.error('Error saving route:', error);
+            Alert.alert('Error', 'Failed to save route');
         }
     };
 
@@ -236,44 +275,16 @@ export default function RouteRecommendation() {
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.title}>Route Recommendations</Text>
-                <Text style={styles.subtitle}>Get the best route based on real-time traffic</Text>
-            </View>
-            
-            <View style={styles.searchSection}>
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Where do you want to go?"
-                    placeholderTextColor="#999"
-                    value={destinationText}
-                    onChangeText={handleDestinationChange}
-                    onFocus={() => setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                />
-                
-                {showSuggestions && suggestions.length > 0 && (
-                    <ScrollView style={styles.suggestionsContainer} nestedScrollEnabled={true}>
-                        {suggestions.map((item) => (
-                            <TouchableOpacity
-                                key={item.place_id}
-                                onPress={() => selectDestination(item.place_id, item.description)}
-                                style={styles.suggestionItem}
-                            >
-                                <Text style={styles.suggestionText}>{item.description}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                )}
-            </View>
-            
             {loading && <ActivityIndicator size="large" color="#4CAF50" style={styles.loader} />}
             
             {!loading && recommendations.length > 0 && (
                 <View style={styles.resultsContainer}>
-                    <Text style={styles.resultsTitle}>
-                        📍 Routes to {selectedDestination?.name}
-                    </Text>
+                    <View style={styles.header}>
+                       <Text style={styles.title}>Alternate Routes</Text>
+                        <Text style={styles.resultsTitle}>
+                            📍 To {selectedDestination?.name}
+                        </Text>
+                    </View>
                     <FlatList
                         data={recommendations}
                         renderItem={renderRouteCard}
@@ -284,10 +295,10 @@ export default function RouteRecommendation() {
                 </View>
             )}
             
-            {!loading && recommendations.length === 0 && destinationText === '' && (
+            {!loading && recommendations.length === 0 && (
                 <View style={styles.emptyState}>
                     <Text style={styles.emptyIcon}>🗺️</Text>
-                    <Text style={styles.emptyText}>Enter a destination to see route recommendations</Text>
+                    <Text style={styles.emptyText}>No destination set. Go to Maps tab and use the direction button to set a destination.</Text>
                 </View>
             )}
         </View>
@@ -315,56 +326,22 @@ const styles = StyleSheet.create({
         color: '#fff',
         opacity: 0.9,
     },
-    searchSection: {
-        padding: 20,
-        backgroundColor: '#fff',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-        zIndex: 1000,
-    },
-    searchInput: {
-        backgroundColor: '#f5f5f5',
-        borderRadius: 12,
-        padding: 15,
-        fontSize: 16,
-        borderWidth: 2,
-        borderColor: '#4CAF50',
-    },
-    suggestionsContainer: {
-        maxHeight: 200,
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        marginTop: 10,
-        borderWidth: 1,
-        borderColor: '#e0e0e0',
-    },
-    suggestionItem: {
-        padding: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
-    suggestionText: {
-        fontSize: 14,
-        color: '#333',
-    },
     loader: {
         marginTop: 50,
     },
     resultsContainer: {
         flex: 1,
-        padding: 20,
+        padding: 16,
     },
     resultsTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 15,
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#fff',
+        opacity: 0.95,
     },
     listContent: {
         paddingBottom: 20,
+        paddingTop: 10,
     },
     routeCard: {
         backgroundColor: '#fff',

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, StyleSheet, ImageBackground, ActivityIndicator, Animated, Modal, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ImageBackground, ActivityIndicator, Animated, Modal, TouchableOpacity, Image } from 'react-native';
 import { ScrollView } from 'react-native';
 import { Provider as PaperProvider, Appbar, Text, BottomNavigation, Button, Dialog, Portal} from 'react-native-paper';
 import { useFonts } from 'expo-font';
@@ -14,6 +14,7 @@ import TrafficUpdate from './assets/components/trafficUpdate';
 import IncidentReport from './assets/components/incidentReport';
 import RouteRecommendation from './assets/components/rec';
 import SavedRoutes from './assets/components/savedRoutes';
+
 // Route components
 const HomeRoute = ({ showTraffic, setShowTraffic, trafficFadeAnim, showIncidentReport, setShowIncidentReport, navigateToRoutes }) => {
   if (showIncidentReport) {
@@ -137,7 +138,10 @@ export default function App() {
 
         <Appbar.Header style={styles.menubar}>
           <Appbar.Action icon="menu" onPress={() => setShowMenuModal(true)} />
-          <Appbar.Content title="Traffic GO" titleStyle={styles.menuTitle} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <Text style={styles.brandText}>Traffic </Text>
+            <Text style={[styles.brandText, { color: '#E6EE77', fontWeight: '800' }]}>GO</Text>
+          </View>
         </Appbar.Header>
 
         {/* Hamburger Menu Modal */}
@@ -229,8 +233,8 @@ export default function App() {
           onIndexChange={setIndex}
           renderScene={renderScene}
           barStyle={styles.bottomNav}
-          activeColor="#b5c729ff"
-          inactiveColor="rgba(255,255,255,0.6)"
+          activeColor="#1f2312d2"
+          inactiveColor="rgba(255, 255, 255, 0.6)"
           renderIcon={({ route, color }) => (
             <MaterialCommunityIcons name={route.icon} size={24} color={color} />
           )}
@@ -247,7 +251,7 @@ const styles = StyleSheet.create({
   routeContainer: {
     flex: 1,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 30,
     backgroundColor: '#f6f6f6',
   },
   backgroundImage: {
@@ -269,17 +273,23 @@ const styles = StyleSheet.create({
     fontFamily: 'StackSansNotch-Bold',
     fontSize: 20,
   },
+  brandText: {
+    fontSize: 24,
+    fontFamily: 'StackSansNotch-Bold',
+    fontWeight: 'bold',
+    color: '#1f2312d2',
+  },
   menuTitle: {
     fontSize: 20,
     fontFamily: 'StackSansNotch-Bold',
     fontStyle: 'normal',
-    color: 'rgba(213, 231, 71, 1)',
+    color: '#1f2312d2',
   },
   menubar: {
-    backgroundColor: '#1279106f',
+    backgroundColor: '#5aab5dff',
   },
   bottomNav: {
-    backgroundColor: '#1279106f',
+    backgroundColor: '#5aab5de6',
   },
   updateButton: {
     width: '90%',
@@ -288,7 +298,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginVertical: 8,
     textAlign: 'center',
-    backgroundColor: '#b5c729ff',
+    backgroundColor: '#5aab5dff',
   },
   updateButtonContent: {
     height: 48,
@@ -304,10 +314,11 @@ const styles = StyleSheet.create({
   buttonsContainer: {
     width: '100%',
     alignItems: 'center',
+    marginTop: 30,
     paddingVertical: 8,
   },
   searchbar: {
-    marginTop: 20,
+    marginTop: 30,
     marginHorizontal: 20,
     marginVertical: 10,
     backgroundColor: '#9b6666ff',

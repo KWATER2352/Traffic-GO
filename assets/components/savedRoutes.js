@@ -1,14 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Entypo } from '@expo/vector-icons';
 
 export default function SavedRoutes() {
     const [savedRoutes, setSavedRoutes] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [refreshKey, setRefreshKey] = useState(0);
 
     useEffect(() => {
         loadSavedRoutes();
-    }, []);
+        
+        const interval = setInterval(() => {
+            loadSavedRoutes();
+        }, 2000);
+        
+        return () => clearInterval(interval);
+    }, [refreshKey]);
 
     const loadSavedRoutes = async () => {
         try {
@@ -88,7 +96,8 @@ export default function SavedRoutes() {
                 style={styles.deleteButton}
                 onPress={() => deleteRoute(index)}
             >
-                <Text style={styles.deleteButtonText}>🗑️ Delete</Text>
+        <Entypo name="trash" size={30} style={styles.actionButtonText} color="#1f2312d2" />
+
             </TouchableOpacity>
         </View>
     );
@@ -135,7 +144,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#f5f5f5',
     },
     header: {
-        backgroundColor: '#2196F3',
+        backgroundColor: '#4CAF50',
         padding: 20,
         paddingTop: 40,
     },
