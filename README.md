@@ -20,7 +20,7 @@ Traffic-GO provides:
 - 🛣️ Alternative route suggestions
 - 💾 Save and manage favorite routes
 - ⚠️ Report and view traffic incidents
-- 📱 Cross-platform support (iOS, Android, Web)
+- 📱 Cross-platform support (iOS, Android)
 
 ## Tech Stack
 
@@ -72,7 +72,6 @@ Run on specific platforms:
 ```bash
 npm run android    # Run on Android
 npm run ios        # Run on iOS
-npm run web        # Run in web browser
 ```
 
 ## Testing
@@ -116,30 +115,6 @@ Traffic-GO/
 ├── index.js             # Entry point
 └── package.json         # Dependencies
 ```
-
-## Deploying the Web App
-
-This repository includes a GitHub Actions workflow (`.github/workflows/deploy-web.yml`) that builds the Expo web app and deploys the static output to GitHub Pages on pushes to `main`.
-
-### Build for web:
-```bash
-npm run build:web
-```
-
-### Export static web build:
-```bash
-npm run export:web
-```
-
-### Serve locally (optional):
-```bash
-npx serve web-build
-```
-
-**Notes:**
-- Ensure your repo is pushed to GitHub and GitHub Pages is enabled (branch: `gh-pages` or use the repository settings default)
-- The workflow uses the built-in `GITHUB_TOKEN` to push
-- For other deployment targets (EAS builds for app stores, Netlify, Vercel), additional configuration may be needed
 
 ## Contributing
 
